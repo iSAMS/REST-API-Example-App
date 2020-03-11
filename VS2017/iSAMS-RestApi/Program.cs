@@ -16,7 +16,7 @@ using Newtonsoft.Json.Linq;
 
 namespace iSAMS_RestApi
 {
-    public class Program
+    public static class Program
     {
         private const string Authority = Domain + "/auth";
 
@@ -218,12 +218,12 @@ namespace iSAMS_RestApi
                             $"[{employeesResponse.StatusCode}] Error retrieving page #{pageNumber} of employees [{employeesResponse.ReasonPhrase}].");
                     }
 
-                    if (VerboseLogging) Console.WriteLine($"Retrieved page #{pageNumber} of employees.");
-
                     var stringContent = await employeesResponse.Content.ReadAsStringAsync();
                     var jsonContent = (JObject) JsonConvert.DeserializeObject(stringContent);
                     var employees = (JArray) jsonContent["employees"];
                     employeeIds.AddRange(employees.Select(x => Convert.ToInt64(x["id"])));
+
+                    if (VerboseLogging) Console.WriteLine($"Retrieved page #{pageNumber} employees out of {jsonContent.GetValue("totalPages")} pages.");
 
                     var halLinks = (JObject) jsonContent["_links"];
                     halLinkNext = (JObject) halLinks["next"];
@@ -234,12 +234,15 @@ namespace iSAMS_RestApi
                 Console.WriteLine($"Retrieving additional information for {employeeIds.Count} employees...");
                 SetRequestHeaders(apiClient, "application/hal+json");
 
+                var employeeCounter = 0;
                 foreach (var employeeId in employeeIds)
                 {
+                    employeeCounter++;
+
                     apiPath =
                         $"{Domain.TrimEnd('/')}/api/humanresources/employees/{employeeId}/financialinformation";
                     if (VerboseLogging)
-                        Console.WriteLine($"Retrieving financial information for employee #{employeeId}...");
+                        Console.WriteLine($"Retrieving financial information for employee #{employeeId}... {employeeCounter} of {employeeIds.Count} employees");
                     var financialInformationResponse = await InternalGetAsync(apiClient, apiPath);
 
                     if (!financialInformationResponse.IsSuccessStatusCode)
@@ -253,7 +256,7 @@ namespace iSAMS_RestApi
 
                     apiPath =
                         $"{Domain.TrimEnd('/')}/api/humanresources/employees/{employeeId}/contracts";
-                    if (VerboseLogging) Console.WriteLine($"Retrieving contracts for employee #{employeeId}...");
+                    if (VerboseLogging) Console.WriteLine($"Retrieving contracts for employee #{employeeId}... {employeeCounter} of {employeeIds.Count} employees");
                     var employeesResponse = await InternalGetAsync(apiClient, apiPath);
 
                     if (!employeesResponse.IsSuccessStatusCode)
